@@ -19,14 +19,16 @@ func (p *ObjectPool) Init(alloc func() interface{}) {
 	}
 }
 
-func (p *ObjectPool) Get() interface{} {
+func (p *ObjectPool) Get() (interface{}, bool) {
 	var v interface{}
 	select {
 	case v = <-p.values:
+		return v, true
 	default:
+		// We ran out of the pool capacity, just allocate a new object. In this case we don't need to put it back.
 		v = p.alloc()
+		return v, false
 	}
-	return v
 }
 
 func (p *ObjectPool) Put(obj interface{}) {

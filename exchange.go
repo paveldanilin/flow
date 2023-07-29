@@ -6,18 +6,19 @@ import (
 )
 
 type Exchange struct {
-	id    string
-	err   error
-	in    *Message
-	out   *Message
-	props map[string]any
+	id          string
+	err         error
+	in          *Message
+	out         *Message
+	props       map[string]any
+	flowContext *Context
 }
 
-func NewExchange(in *Message) *Exchange {
+func NewExchange() *Exchange {
 	return &Exchange{
 		id:    uuid.NewString(),
 		err:   nil,
-		in:    in,
+		in:    NewMessage(),
 		out:   nil,
 		props: make(map[string]any),
 	}
@@ -28,9 +29,6 @@ func (e *Exchange) ExchangeID() string {
 }
 
 func (e *Exchange) In() *Message {
-	if e.in == nil {
-		e.in = NewMessage()
-	}
 	return e.in
 }
 
@@ -58,6 +56,9 @@ func (e *Exchange) SetProp(name string, value any) {
 }
 
 func (e *Exchange) SetProps(props map[string]any) {
+	if props == nil {
+		props = map[string]any{}
+	}
 	e.props = props
 }
 

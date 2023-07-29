@@ -5,6 +5,7 @@ import "fmt"
 type HeaderProcessor struct {
 	setExpression Expr
 	headerName    string
+	// TODO: add message type (in/out). default: in
 	BaseProcessor
 }
 
@@ -16,13 +17,13 @@ func NewHeaderProcessor(headerName string, setExpression Expr) *HeaderProcessor 
 }
 
 func (p *HeaderProcessor) Process(exchange *Exchange) error {
-	res, err := p.setExpression.Evaluate(exchange)
+	ret, err := p.setExpression.Evaluate(exchange)
 	if err != nil {
 		exchange.SetError(fmt.Errorf("header[%s]: %w", p.headerName, err))
 		return exchange.Error()
 	}
 
-	exchange.In().SetHeader(p.headerName, res)
+	exchange.In().SetHeader(p.headerName, ret)
 
 	return p.next(exchange)
 }

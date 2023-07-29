@@ -1,79 +1,44 @@
 package main
 
 import (
-	"github.com/antonmedv/expr"
-	"github.com/antonmedv/expr/vm"
 	"github.com/paveldanilin/flow"
-	"time"
+	"github.com/paveldanilin/flow/definition"
+	_ "github.com/paveldanilin/flow/expr" // <- simple, simple:bool expr
 )
 
-type BoolExpr struct {
-	p *vm.Program
-}
-
-func (be *BoolExpr) Evaluate(exchange *flow.Exchange) (bool, error) {
-	r, err := expr.Run(be.p, exchange)
-	if err != nil {
-		return false, err
-	}
-	return r.(bool), nil
-}
-
-func createBoolExpr(expression string) flow.ExprBool {
-	out, err := expr.Compile(expression, expr.AsBool())
-	if err != nil {
-		panic(err)
-	}
-	return &BoolExpr{p: out}
-}
-
-type Expr struct {
-	p *vm.Program
-}
-
-func (be *Expr) Evaluate(exchange *flow.Exchange) (any, error) {
-	r, err := expr.Run(be.p, exchange)
-	if err != nil {
-		return false, err
-	}
-	return r, nil
-}
-
-func createExpr(expression string) flow.Expr {
-	out, err := expr.Compile(expression)
-	if err != nil {
-		panic(err)
-	}
-	return &Expr{p: out}
-}
-
 func main() {
-	p1 := flow.NewLogProcessor("START")
+	userFlow := definition.NewBuilder().
+		FlowID("abcd").
+		// TODO: expression notation - <kind>:<expression> (simple:1,simple:InHeader('a')>1)
+		SetHeader("a", "simple", "1").
+		SetHeader("b", "simple", "10").
+		SetBody("simple", "InHeader('a') + InHeader('b')").
+		Condition("InBody() == 2").
+		Then().Log("OK!").End().
+		Else().Log("NOK!").End().
+		End().
+		GetFlow()
 
-	p2 := flow.NewConditionalProcessor(createBoolExpr("Prop('a')>1"), flow.NewLogProcessor("THEN"), flow.NewLogProcessor("ELSE"))
-	p2.Then().SetNext(flow.NewLogProcessor("AA"))
-	p2.Else().SetNext(flow.NewLogProcessor("BB")).SetNext(flow.NewDelayProcessor(5 * time.Second)).SetNext(flow.NewLogProcessor("Z"))
-	p2.SetNext(flow.NewLogProcessor("FINISH")).
-		SetNext(flow.NewDelayProcessor(1 * time.Second)).
-		SetNext(flow.NewHeaderProcessor("zZz", createExpr("123456"))).
-		SetNext(flow.NewBodyProcessor(createExpr("Prop('a') + 4"))).
-		SetNext(flow.NewLogProcessor("N"))
+	println(definition.Dump(userFlow.Root))
 
-	p1.SetNext(p2)
+	rtFlow, err := flow.Compile(userFlow)
+	if err != nil {
+		panic(err)
+	}
 
-	exchangePool := flow.NewObjectPool(2)
-	exchangePool.Init(func() interface{} {
-		return flow.NewExchange(nil)
-	})
+	err = rtFlow.Processor().Process(flow.NewExchange())
+	if err != nil {
+		panic(err)
+	}
 
-	start(p1, exchangePool)
-}
+	//consumer := direct.NewConsumer(p1)
+	//consumer := timer.NewConsumer(30 * time.Second)
+	//consumer.AddProcessor(p1)
 
-func start(p flow.Processor, exchangePool *flow.ObjectPool) {
-	ex := exchangePool.Get().(*flow.Exchange)
-	ex.SetProp("a", 1)
+	//f := flow.New("my-test-flow", consumer)
 
-	p.Process(ex)
-
-	exchangePool.Put(ex)
+	//err := f.Start(map[string]any{"a": 1}, nil)
+	//if err != nil {
+	//	panic(err)
+	//}
 }

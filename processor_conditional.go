@@ -1,13 +1,13 @@
 package flow
 
 type ConditionalProcessor struct {
-	condition     ExprBool
+	condition     Expr
 	thenProcessor Processor
 	elseProcessor Processor
 	BaseProcessor
 }
 
-func NewConditionalProcessor(condition ExprBool, thenProcessor Processor, elseProcessor Processor) *ConditionalProcessor {
+func NewConditionalProcessor(condition Expr, thenProcessor Processor, elseProcessor Processor) *ConditionalProcessor {
 	return &ConditionalProcessor{
 		condition:     condition,
 		thenProcessor: thenProcessor,
@@ -40,13 +40,14 @@ func (p *ConditionalProcessor) Else() Processor {
 }
 
 func (p *ConditionalProcessor) nextProcessor(exchange *Exchange) (Processor, error) {
-	r, err := p.condition.Evaluate(exchange)
+	ret, err := p.condition.Evaluate(exchange)
 	if err != nil {
 		return nil, err
 	}
 
-	if r {
+	if ret.(bool) {
 		return p.thenProcessor, nil
 	}
+
 	return p.elseProcessor, nil
 }
