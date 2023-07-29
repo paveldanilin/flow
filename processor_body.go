@@ -3,24 +3,25 @@ package flow
 import "fmt"
 
 type BodyProcessor struct {
-	setExpression Expr
+	bodyExpression Expr
+	// TODO: add message type (in/out). default: in
 	BaseProcessor
 }
 
-func NewBodyProcessor(setExpression Expr) *BodyProcessor {
+func NewBodyProcessor(bodyExpression Expr) *BodyProcessor {
 	return &BodyProcessor{
-		setExpression: setExpression,
+		bodyExpression: bodyExpression,
 	}
 }
 
 func (p *BodyProcessor) Process(exchange *Exchange) error {
-	res, err := p.setExpression.Evaluate(exchange)
+	ret, err := p.bodyExpression.Evaluate(exchange)
 	if err != nil {
 		exchange.SetError(fmt.Errorf("body: %w", err))
 		return exchange.Error()
 	}
 
-	exchange.In().SetBody(res)
+	exchange.In().SetBody(ret)
 
 	return p.next(exchange)
 }

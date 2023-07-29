@@ -38,6 +38,9 @@ func (m *Message) SetHeader(name string, value any) {
 }
 
 func (m *Message) SetHeaders(headers map[string]any) {
+	if headers == nil {
+		headers = map[string]any{}
+	}
 	m.headers = headers
 }
 
