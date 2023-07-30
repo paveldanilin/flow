@@ -1,6 +1,9 @@
 package flow
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 type BodyProcessor struct {
 	bodyExpression Expr
@@ -14,7 +17,7 @@ func NewBodyProcessor(bodyExpression Expr) *BodyProcessor {
 	}
 }
 
-func (p *BodyProcessor) Process(exchange *Exchange) error {
+func (p *BodyProcessor) Process(ctx context.Context, exchange *Exchange) error {
 	ret, err := p.bodyExpression.Evaluate(exchange)
 	if err != nil {
 		exchange.SetError(fmt.Errorf("body: %w", err))
@@ -23,5 +26,5 @@ func (p *BodyProcessor) Process(exchange *Exchange) error {
 
 	exchange.In().SetBody(ret)
 
-	return p.next(exchange)
+	return p.next(ctx, exchange)
 }

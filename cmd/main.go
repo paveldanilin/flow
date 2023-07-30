@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"github.com/paveldanilin/flow"
 	"github.com/paveldanilin/flow/definition"
 	_ "github.com/paveldanilin/flow/expr" // <- simple, simple:bool expr
@@ -21,15 +23,19 @@ func main() {
 
 	println(definition.Dump(userFlow.Root))
 
-	rtFlow, err := flow.Compile(userFlow)
+	flowRegistry := flow.NewRegistry(flow.RegistryConfig{ExchangePoolSize: 1000})
+
+	flowRegistry.Add(userFlow)
+
+	ret, err := flowRegistry.Execute(context.TODO(), flow.Params{
+		FlowID: "abcd",
+	})
+
 	if err != nil {
 		panic(err)
 	}
 
-	err = rtFlow.Processor().Process(flow.NewExchange())
-	if err != nil {
-		panic(err)
-	}
+	fmt.Printf("->%v\n", ret)
 
 	//consumer := direct.NewConsumer(p1)
 	//consumer := timer.NewConsumer(30 * time.Second)

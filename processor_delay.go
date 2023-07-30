@@ -1,6 +1,9 @@
 package flow
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 type DelayProcessor struct {
 	dur time.Duration
@@ -11,8 +14,8 @@ func NewDelayProcessor(dur time.Duration) *DelayProcessor {
 	return &DelayProcessor{dur: dur}
 }
 
-func (p *DelayProcessor) Process(exchange *Exchange) error {
+func (p *DelayProcessor) Process(ctx context.Context, exchange *Exchange) error {
 	time.Sleep(p.dur)
 
-	return p.next(exchange)
+	return p.next(ctx, exchange)
 }

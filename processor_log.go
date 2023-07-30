@@ -1,6 +1,9 @@
 package flow
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 type LogProcessor struct {
 	message string
@@ -13,7 +16,7 @@ func NewLogProcessor(message string) *LogProcessor {
 	}
 }
 
-func (p *LogProcessor) Process(exchange *Exchange) error {
+func (p *LogProcessor) Process(ctx context.Context, exchange *Exchange) error {
 	println("-------------------------------------------------")
 	fmt.Printf("-- EXCHANGE[%s]\n", exchange.ExchangeID())
 	fmt.Printf("-- MSG: %s\n", p.message)
@@ -27,5 +30,5 @@ func (p *LogProcessor) Process(exchange *Exchange) error {
 
 	println("-------------------------------------------------")
 
-	return p.next(exchange)
+	return p.next(ctx, exchange)
 }

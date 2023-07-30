@@ -1,5 +1,7 @@
 package flow
 
+import "context"
+
 type ConditionalProcessor struct {
 	condition     Expr
 	thenProcessor Processor
@@ -15,20 +17,20 @@ func NewConditionalProcessor(condition Expr, thenProcessor Processor, elseProces
 	}
 }
 
-func (p *ConditionalProcessor) Process(exchange *Exchange) error {
+func (p *ConditionalProcessor) Process(ctx context.Context, exchange *Exchange) error {
 	nextProcessor, err := p.nextProcessor(exchange)
 	if err != nil {
 		exchange.SetError(err)
 		return err
 	}
 
-	err = p.To(nextProcessor, exchange)
+	err = p.To(ctx, nextProcessor, exchange)
 	if err != nil {
 		exchange.SetError(err)
 		return err
 	}
 
-	return p.next(exchange)
+	return p.next(ctx, exchange)
 }
 
 func (p *ConditionalProcessor) Then() Processor {
