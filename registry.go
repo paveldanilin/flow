@@ -2,7 +2,7 @@ package flow
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"github.com/paveldanilin/flow/definition"
 	"sync"
 )
@@ -30,12 +30,12 @@ func NewRegistry(cfg RegistryConfig) *Registry {
 	return ctx
 }
 
-func (c *Registry) Add(flowDef *definition.Flow) error {
-	c.flowMu.Lock()
-	defer c.flowMu.Unlock()
+func (r *Registry) Add(flowDef *definition.Flow) error {
+	r.flowMu.Lock()
+	defer r.flowMu.Unlock()
 
-	if _, flowExists := c.flowMap[flowDef.FlowID]; flowExists {
-		return errors.New("flow: already registered")
+	if _, flowExists := r.flowMap[flowDef.FlowID]; flowExists {
+		return fmt.Errorf("flow.registry: flow with ID '%s' already registered", flowDef.FlowID)
 	}
 
 	rtFlow, err := Compile(flowDef)
@@ -43,25 +43,25 @@ func (c *Registry) Add(flowDef *definition.Flow) error {
 		return err
 	}
 
-	c.flowMap[flowDef.FlowID] = rtFlow
+	r.flowMap[flowDef.FlowID] = rtFlow
 
 	return nil
 }
 
-func (c *Registry) Execute(ctx context.Context, params Params) (any, error) {
+func (r *Registry) Execute(ctx context.Context, params Params) (any, error) {
 	// TODO: queue (for online processing)
 
-	c.flowMu.RLock()
-	flow, flowExists := c.flowMap[params.FlowID]
+	r.flowMu.RLock()
+	flow, flowExists := r.flowMap[params.FlowID]
 	if !flowExists {
-		c.flowMu.RUnlock()
-		return nil, errors.New("flow: not found")
+		r.flowMu.RUnlock()
+		return nil, fmt.Errorf("flow.registry: flow with ID '%s' not found", params.FlowID)
 	}
-	c.flowMu.RUnlock()
+	r.flowMu.RUnlock()
 
-	exchange, shouldRelease := c.getExchange()
+	exchange, shouldRelease := r.getExchange()
 	if shouldRelease {
-		defer c.releaseExchange(exchange)
+		defer r.releaseExchange(exchange)
 	}
 
 	if params.ExchangeProps != nil {
@@ -87,17 +87,17 @@ func (c *Registry) Execute(ctx context.Context, params Params) (any, error) {
 	return ret, nil
 }
 
-func (c *Registry) Send(params Params) error {
+func (r *Registry) Send(params Params) error {
 	// TODO: queue (for event processing)
 	return nil
 }
 
-func (c *Registry) getExchange() (*Exchange, bool) {
-	obj, pooled := c.exchangePool.Get()
+func (r *Registry) getExchange() (*Exchange, bool) {
+	obj, pooled := r.exchangePool.Get()
 	return obj.(*Exchange), pooled
 }
 
-func (c *Registry) releaseExchange(exchange *Exchange) {
+func (r *Registry) releaseExchange(exchange *Exchange) {
 	// TODO: Reset exchange
 	exchange.flowContext = nil
 	exchange.props = map[string]any{}
@@ -108,5 +108,5 @@ func (c *Registry) releaseExchange(exchange *Exchange) {
 		exchange.out.headers = map[string]any{}
 		exchange.out.body = nil
 	}
-	c.exchangePool.Put(exchange)
+	r.exchangePool.Put(exchange)
 }
