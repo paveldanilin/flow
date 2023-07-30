@@ -11,7 +11,7 @@ type Exchange struct {
 	in          *Message
 	out         *Message
 	props       map[string]any
-	flowContext *Context
+	flowContext *Registry
 }
 
 func NewExchange() *Exchange {

@@ -1,22 +1,24 @@
 package flow
 
 import (
+	"context"
 	"errors"
+	"github.com/paveldanilin/flow/definition"
 	"sync"
 )
 
-type ContextConfig struct {
+type RegistryConfig struct {
 	ExchangePoolSize int
 }
 
-type Context struct {
+type Registry struct {
 	flowMap      map[string]*Flow
 	flowMu       sync.RWMutex
 	exchangePool *ObjectPool
 }
 
-func NewContext(cfg ContextConfig) *Context {
-	ctx := &Context{
+func NewRegistry(cfg RegistryConfig) *Registry {
+	ctx := &Registry{
 		flowMap:      map[string]*Flow{},
 		exchangePool: NewObjectPool(cfg.ExchangePoolSize),
 	}
@@ -28,20 +30,25 @@ func NewContext(cfg ContextConfig) *Context {
 	return ctx
 }
 
-func (c *Context) Register(f *Flow) error {
+func (c *Registry) Add(flowDef *definition.Flow) error {
 	c.flowMu.Lock()
 	defer c.flowMu.Unlock()
 
-	if _, flowExists := c.flowMap[f.FlowID()]; flowExists {
+	if _, flowExists := c.flowMap[flowDef.FlowID]; flowExists {
 		return errors.New("flow: already registered")
 	}
 
-	c.flowMap[f.FlowID()] = f
+	rtFlow, err := Compile(flowDef)
+	if err != nil {
+		return err
+	}
+
+	c.flowMap[flowDef.FlowID] = rtFlow
 
 	return nil
 }
 
-func (c *Context) Execute(params Params) (any, error) {
+func (c *Registry) Execute(ctx context.Context, params Params) (any, error) {
 	// TODO: queue (for online processing)
 
 	c.flowMu.RLock()
@@ -65,7 +72,7 @@ func (c *Context) Execute(params Params) (any, error) {
 	}
 	exchange.In().SetBody(params.MessageBody)
 
-	err := flow.Processor().Process(exchange)
+	err := flow.Processor().Process(ctx, exchange)
 	if err != nil {
 		return nil, err
 	}
@@ -80,17 +87,17 @@ func (c *Context) Execute(params Params) (any, error) {
 	return ret, nil
 }
 
-func (c *Context) Send(params Params) error {
+func (c *Registry) Send(params Params) error {
 	// TODO: queue (for event processing)
 	return nil
 }
 
-func (c *Context) getExchange() (*Exchange, bool) {
+func (c *Registry) getExchange() (*Exchange, bool) {
 	obj, pooled := c.exchangePool.Get()
 	return obj.(*Exchange), pooled
 }
 
-func (c *Context) releaseExchange(exchange *Exchange) {
+func (c *Registry) releaseExchange(exchange *Exchange) {
 	// TODO: Reset exchange
 	exchange.flowContext = nil
 	exchange.props = map[string]any{}
