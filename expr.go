@@ -12,8 +12,10 @@ type Expr interface {
 
 type ExprFactoryFunc func(expression string, opts ...any) (Expr, error)
 
-var exprFactoryMap = map[string]ExprFactoryFunc{}
-var exprFactoryMu = sync.RWMutex{}
+var (
+	exprFactoryMap = map[string]ExprFactoryFunc{}
+	exprFactoryMu  = sync.RWMutex{}
+)
 
 func RegisterExprFactory(lang string, factoryFunc ExprFactoryFunc) error {
 	exprFactoryMu.Lock()
