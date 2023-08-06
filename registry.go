@@ -2,7 +2,8 @@ package flow
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"github.com/google/uuid"
 	"github.com/paveldanilin/flow/definition"
 	"sync"
 )
@@ -30,46 +31,75 @@ func NewRegistry(cfg RegistryConfig) *Registry {
 	return ctx
 }
 
-func (c *Registry) Add(flowDef *definition.Flow) error {
-	c.flowMu.Lock()
-	defer c.flowMu.Unlock()
-
-	if _, flowExists := c.flowMap[flowDef.FlowID]; flowExists {
-		return errors.New("flow: already registered")
-	}
-
-	rtFlow, err := Compile(flowDef)
+func (r *Registry) Start() error {
+	err := startComponents()
 	if err != nil {
 		return err
 	}
 
-	c.flowMap[flowDef.FlowID] = rtFlow
+	for _, f := range r.flowMap {
+		err := f.Consumer().Start()
+		if err != nil {
+			fmt.Printf("[%s] failed to start %s", f.FlowID(), err.Error())
+		}
+	}
 
 	return nil
 }
 
-func (c *Registry) Execute(ctx context.Context, params Params) (any, error) {
-	// TODO: queue (for online processing)
+func (r *Registry) Stop() {
+	stopComponents()
+}
 
-	c.flowMu.RLock()
-	flow, flowExists := c.flowMap[params.FlowID]
-	if !flowExists {
-		c.flowMu.RUnlock()
-		return nil, errors.New("flow: not found")
+func (r *Registry) Add(flow *definition.Flow) error {
+	r.flowMu.Lock()
+	defer r.flowMu.Unlock()
+
+	if _, flowExists := r.flowMap[flow.FlowID]; flowExists {
+		return fmt.Errorf("flow.registry: flow already exists ID='%s'", flow.FlowID)
 	}
-	c.flowMu.RUnlock()
 
-	exchange, shouldRelease := c.getExchange()
+	rtFlow, err := Compile(flow)
+	if err != nil {
+		return err
+	}
+
+	rtFlow.registry = r
+
+	r.flowMap[flow.FlowID] = rtFlow
+
+	return nil
+}
+
+func (r *Registry) Execute(ctx context.Context, params Params) (any, error) {
+	// TODO: queue (for online processing)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	r.flowMu.RLock()
+	flow, flowExists := r.flowMap[params.FlowID]
+	if !flowExists {
+		r.flowMu.RUnlock()
+		return nil, fmt.Errorf("flow.registry: flow not found ID='%s'", params.FlowID)
+	}
+	r.flowMu.RUnlock()
+
+	exchange, shouldRelease := r.GetExchange()
 	if shouldRelease {
-		defer c.releaseExchange(exchange)
+		defer r.ReleaseExchange(exchange)
 	}
 
 	if params.ExchangeProps != nil {
 		exchange.SetProps(params.ExchangeProps)
 	}
+	exchange.SetProp("FLOW_ID", params.FlowID)
+	exchange.SetProp("FLOW_RUN_ID", uuid.NewString())
+
 	if params.MessageHeaders != nil {
 		exchange.In().SetHeaders(params.MessageHeaders)
 	}
+
 	exchange.In().SetBody(params.MessageBody)
 
 	err := flow.Processor().Process(ctx, exchange)
@@ -87,19 +117,45 @@ func (c *Registry) Execute(ctx context.Context, params Params) (any, error) {
 	return ret, nil
 }
 
-func (c *Registry) Send(params Params) error {
-	// TODO: queue (for event processing)
+func (r *Registry) Send(ctx context.Context, params Params) error {
+	r.flowMu.RLock()
+	flow, flowExists := r.flowMap[params.FlowID]
+	if !flowExists {
+		r.flowMu.RUnlock()
+		return fmt.Errorf("flow.registry: flow not found ID='%s'", params.FlowID)
+	}
+	r.flowMu.RUnlock()
+
+	exchange, shouldRelease := r.GetExchange()
+	if shouldRelease {
+		defer r.ReleaseExchange(exchange)
+	}
+
+	if params.ExchangeProps != nil {
+		exchange.SetProps(params.ExchangeProps)
+	}
+	exchange.SetProp("FLOW_ID", params.FlowID)
+	exchange.SetProp("FLOW_RUN_ID", uuid.NewString())
+
+	if params.MessageHeaders != nil {
+		exchange.In().SetHeaders(params.MessageHeaders)
+	}
+
+	exchange.In().SetBody(params.MessageBody)
+
+	flow.Processor().Process(ctx, exchange)
+
 	return nil
 }
 
-func (c *Registry) getExchange() (*Exchange, bool) {
-	obj, pooled := c.exchangePool.Get()
+func (r *Registry) GetExchange() (*Exchange, bool) {
+	obj, pooled := r.exchangePool.Get()
 	return obj.(*Exchange), pooled
 }
 
-func (c *Registry) releaseExchange(exchange *Exchange) {
+func (r *Registry) ReleaseExchange(exchange *Exchange) {
 	// TODO: Reset exchange
-	exchange.flowContext = nil
+	exchange.flowRegistry = nil
 	exchange.props = map[string]any{}
 	exchange.err = nil
 	exchange.in.headers = map[string]any{}
@@ -108,5 +164,5 @@ func (c *Registry) releaseExchange(exchange *Exchange) {
 		exchange.out.headers = map[string]any{}
 		exchange.out.body = nil
 	}
-	c.exchangePool.Put(exchange)
+	r.exchangePool.Put(exchange)
 }

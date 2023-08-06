@@ -6,17 +6,18 @@ import (
 
 // Builder a flow definition builder
 type Builder struct {
-	flowID string
-	parent *Builder
-	root   Node
-	stack  []Node
+	flowID      string
+	consumerURI string
+	parent      *Builder
+	root        Node
+	stack       []Node
 }
 
 func NewBuilder() *Builder {
-	return newWithRootBuilder(nil, nil)
+	return newBuilder(nil, nil)
 }
 
-func newWithRootBuilder(parent *Builder, root Node) *Builder {
+func newBuilder(parent *Builder, root Node) *Builder {
 	b := &Builder{
 		parent: parent,
 		root:   nil,
@@ -37,8 +38,23 @@ func newWithRootBuilder(parent *Builder, root Node) *Builder {
 	return b
 }
 
+func (b *Builder) AddNode(node Node) *Builder {
+	b.current().Add(node)
+	return b
+}
+
 func (b *Builder) FlowID(flowID string) *Builder {
 	b.flowID = flowID
+	return b
+}
+
+func (b *Builder) Consumer(uri string) *Builder {
+	b.consumerURI = uri
+	return b
+}
+
+func (b *Builder) To(uri string) *Builder {
+	b.current().Add(NewProducerNode(uri))
 	return b
 }
 
@@ -47,40 +63,40 @@ func (b *Builder) Log(message string) *Builder {
 	return b
 }
 
-func (b *Builder) SetHeader(headerName, exprKind, expression string) *Builder {
-	b.current().Add(NewHeaderNode(exprKind, expression, headerName))
+func (b *Builder) SetHeader(headerName string, headerValue Expr) *Builder {
+	b.current().Add(NewHeaderNode(headerName, headerValue))
 	return b
 }
 
-func (b *Builder) SetBody(exprKind, expression string) *Builder {
-	b.current().Add(NewBodyNode(exprKind, expression))
+func (b *Builder) SetBody(bodyValue Expr) *Builder {
+	b.current().Add(NewBodyNode(bodyValue))
 	return b
 }
 
-func (b *Builder) Condition(expression string) *Builder {
-	b.beginTree(NewConditionalNode("simple:bool", expression))
+func (b *Builder) Condition(condition Expr) *Builder {
+	b.beginTree(NewConditionalNode(condition))
 
-	conditionBuilder := newWithRootBuilder(b, nil)
-	conditionBuilder.ChildNode(NewNode()) // Then arc
-	conditionBuilder.ChildNode(NewNode()) // Else arc
+	conditionBuilder := newBuilder(b, nil)
+	conditionBuilder.AddNode(NewNode()) // Then arc
+	conditionBuilder.AddNode(NewNode()) // Else arc
 
 	return conditionBuilder
 }
 
 func (b *Builder) Then() *Builder {
-	_, isConditionalNode := b.current().(*ConditionNode)
+	_, isConditionalNode := b.current().(*ConditionalNode)
 	if isConditionalNode {
-		return newWithRootBuilder(b, b.current().MustChild(0))
+		return newBuilder(b, b.current().MustChild(0))
 	}
-	panic(fmt.Sprintf("definition: cannot start the 'Then' flow, since the current current is not a conditional current"))
+	panic(fmt.Sprintf("flow.definition.builder: cannot begin 'Then' flow, since the current node is not a conditional"))
 }
 
 func (b *Builder) Else() *Builder {
-	_, isConditionalNode := b.current().(*ConditionNode)
+	_, isConditionalNode := b.current().(*ConditionalNode)
 	if isConditionalNode {
-		return newWithRootBuilder(b, b.current().MustChild(1))
+		return newBuilder(b, b.current().MustChild(1))
 	}
-	panic(fmt.Sprintf("definition: cannot start the 'Else' flow, since the current current is not a conditional current"))
+	panic(fmt.Sprintf("flow.definition.builder: cannot begin the 'Else' flow, since the current node is not a conditional"))
 }
 
 func (b *Builder) End() *Builder {
@@ -94,15 +110,11 @@ func (b *Builder) End() *Builder {
 	return b.parent
 }
 
-func (b *Builder) ChildNode(node Node) *Builder {
-	b.current().Add(node)
-	return b
-}
-
 func (b *Builder) GetFlow() *Flow {
 	return &Flow{
-		FlowID: b.flowID,
-		Root:   b.root,
+		FlowID:      b.flowID,
+		ConsumerURI: b.consumerURI,
+		Root:        b.root,
 	}
 }
 

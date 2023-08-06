@@ -1,14 +1,5 @@
 package flow
 
-type Consumer interface {
-	Start() error
-	Stop()
-}
-
-type Producer interface {
-	Processor
-}
-
 type Params struct {
 	FlowID         string
 	ExchangeProps  map[string]any
@@ -16,10 +7,15 @@ type Params struct {
 	MessageBody    any
 }
 
+type Setter interface {
+	SetFlow(flow *Flow)
+}
+
 type Flow struct {
 	id        string
 	consumer  Consumer
 	processor Processor
+	registry  *Registry
 }
 
 func New(id string, consumer Consumer, processor Processor) *Flow {
@@ -40,4 +36,8 @@ func (f *Flow) Consumer() Consumer {
 
 func (f *Flow) Processor() Processor {
 	return f.processor
+}
+
+func (f *Flow) Registry() *Registry {
+	return f.registry
 }
