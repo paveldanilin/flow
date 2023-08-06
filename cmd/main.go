@@ -30,27 +30,7 @@ func main() {
 		panic(err)
 	}
 
-	//ret, err := flowRegistry.Execute(context.TODO(), flow.Params{
-	//	FlowID: "abcd",
-	//})
-
-	//if err != nil {
-	//	panic(err)
-	//}
-
-	//fmt.Printf("->%v\n", ret)
 	select {}
 
 	flowRegistry.Stop()
-
-	//consumer := direct.NewConsumer(p1)
-	//consumer := timer.NewConsumer(30 * time.Second)
-	//consumer.AddProcessor(p1)
-
-	//f := flow.New("my-test-flow", consumer)
-
-	//err := f.Start(map[string]any{"a": 1}, nil)
-	//if err != nil {
-	//	panic(err)
-	//}
 }
