@@ -3,20 +3,18 @@ package definition
 import "fmt"
 
 type HeaderNode struct {
-	ExprKind   string
-	Expression string
 	HeaderName string
+	HeaderExpr Expr
 	Node
 }
 
 func (n HeaderNode) String() string {
-	return fmt.Sprintf("SetHeader:[%s]=%s:%s", n.HeaderName, n.ExprKind, n.Expression)
+	return fmt.Sprintf("SetHeader:[%s]=%s:%s", n.HeaderName, n.HeaderExpr.Lang, n.HeaderExpr.Expression)
 }
 
-func NewHeaderNode(exprKind, expression, headerName string) *HeaderNode {
+func NewHeaderNode(headerName string, headerExpr Expr) *HeaderNode {
 	return &HeaderNode{
-		ExprKind:   exprKind,
-		Expression: expression,
+		HeaderExpr: headerExpr,
 		HeaderName: headerName,
 		Node:       NewNode(),
 	}

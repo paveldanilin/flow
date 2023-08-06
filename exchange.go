@@ -6,12 +6,12 @@ import (
 )
 
 type Exchange struct {
-	id          string
-	err         error
-	in          *Message
-	out         *Message
-	props       map[string]any
-	flowContext *Registry
+	id           string
+	err          error
+	in           *Message
+	out          *Message
+	props        map[string]any
+	flowRegistry *Registry
 }
 
 func NewExchange() *Exchange {

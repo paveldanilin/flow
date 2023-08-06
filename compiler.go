@@ -1,33 +1,44 @@
 package flow
 
 import (
-	"errors"
+	"fmt"
 	"github.com/paveldanilin/flow/definition"
 )
 
-func Compile(flowDef *definition.Flow) (*Flow, error) {
-	startProcessor, err := compile(flowDef.Root.Children())
+func Compile(flow *definition.Flow) (*Flow, error) {
+	consumer, err := getConsumer(flow.ConsumerURI)
 	if err != nil {
 		return nil, err
 	}
 
-	return New(flowDef.FlowID, nil, startProcessor), nil
+	processor, err := compileNodes(flow.Root.Children())
+	if err != nil {
+		return nil, err
+	}
+
+	f := New(flow.FlowID, consumer, processor)
+
+	if setter, isSetter := consumer.(Setter); isSetter {
+		setter.SetFlow(f)
+	}
+
+	return f, nil
 }
 
-func compile(nodes []definition.Node) (Processor, error) {
+func compileNodes(nodes []definition.Node) (Processor, error) {
 	var startProcessor Processor
 	var curProcessor Processor
 	var err error
 
-	for _, nodeDef := range nodes {
+	for _, node := range nodes {
 		if curProcessor == nil {
-			curProcessor, err = compileNode(nodeDef)
+			curProcessor, err = createProcessor(node)
 			if err != nil {
 				return nil, err
 			}
 			startProcessor = curProcessor
 		} else {
-			next, err := compileNode(nodeDef)
+			next, err := createProcessor(node)
 			if err != nil {
 				return nil, err
 			}
@@ -39,10 +50,10 @@ func compile(nodes []definition.Node) (Processor, error) {
 	return startProcessor, nil
 }
 
-func compileNode(node definition.Node) (Processor, error) {
+func createProcessor(node definition.Node) (Processor, error) {
 	switch node.(type) {
-	case *definition.ConditionNode:
-		return createConditionalProcessor(node.(*definition.ConditionNode))
+	case *definition.ConditionalNode:
+		return createConditionalProcessor(node.(*definition.ConditionalNode))
 
 	case *definition.HeaderNode:
 		return createHeaderProcessor(node.(*definition.HeaderNode))
@@ -53,23 +64,26 @@ func compileNode(node definition.Node) (Processor, error) {
 	case *definition.LogNode:
 		return createLogProcessor(node.(*definition.LogNode))
 
+	case *definition.ProducerNode:
+		return createProducerProcessor(node.(*definition.ProducerNode))
+
 	default:
-		return nil, errors.New("flow compiler: unknown node definition")
+		return nil, fmt.Errorf("flow.compiler: unknown node '%T'", node)
 	}
 }
 
-func createConditionalProcessor(condDef *definition.ConditionNode) (*ConditionalProcessor, error) {
-	expr, err := NewExpr(condDef.Kind, condDef.Expression)
+func createConditionalProcessor(node *definition.ConditionalNode) (*ConditionalProcessor, error) {
+	expr, err := NewExpr(node.Condition.Lang, node.Condition.Expression)
 	if err != nil {
 		return nil, err
 	}
 
-	thenDst, err := compile(condDef.MustChild(0).Children())
+	thenDst, err := compileNodes(node.MustChild(0).Children())
 	if err != nil {
 		return nil, err
 	}
 
-	elseDst, err := compile(condDef.MustChild(1).Children())
+	elseDst, err := compileNodes(node.MustChild(1).Children())
 	if err != nil {
 		return nil, err
 	}
@@ -77,17 +91,17 @@ func createConditionalProcessor(condDef *definition.ConditionNode) (*Conditional
 	return NewConditionalProcessor(expr, thenDst, elseDst), nil
 }
 
-func createHeaderProcessor(headerDef *definition.HeaderNode) (*HeaderProcessor, error) {
-	expr, err := NewExpr(headerDef.ExprKind, headerDef.Expression)
+func createHeaderProcessor(node *definition.HeaderNode) (*HeaderProcessor, error) {
+	expr, err := NewExpr(node.HeaderExpr.Lang, node.HeaderExpr.Expression)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewHeaderProcessor(headerDef.HeaderName, expr), nil
+	return NewHeaderProcessor(node.HeaderName, expr), nil
 }
 
-func createBodyProcessor(bodyDef *definition.BodyNode) (*BodyProcessor, error) {
-	expr, err := NewExpr(bodyDef.ExprKind, bodyDef.Expression)
+func createBodyProcessor(node *definition.BodyNode) (*BodyProcessor, error) {
+	expr, err := NewExpr(node.BodyExpr.Lang, node.BodyExpr.Expression)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +109,14 @@ func createBodyProcessor(bodyDef *definition.BodyNode) (*BodyProcessor, error) {
 	return NewBodyProcessor(expr), nil
 }
 
-func createLogProcessor(logDef *definition.LogNode) (*LogProcessor, error) {
-	return NewLogProcessor(logDef.Message), nil
+func createLogProcessor(node *definition.LogNode) (*LogProcessor, error) {
+	return NewLogProcessor(node.Message), nil
+}
+
+func createProducerProcessor(node *definition.ProducerNode) (*ProducerProcessor, error) {
+	producer, err := getProducer(node.URI)
+	if err != nil {
+		return nil, err
+	}
+	return NewProducerProcessor(producer), nil
 }

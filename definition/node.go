@@ -55,7 +55,7 @@ func (n *flowNode) FirstChild() Node {
 
 func (n *flowNode) MustChild(index int) Node {
 	if index > len(n.children) {
-		panic(fmt.Sprintf("flow: a child node not found at index [%d]", index))
+		panic(fmt.Sprintf("flow.definition.node: a child node not found at index [%d]", index))
 	}
 	return n.children[index]
 }

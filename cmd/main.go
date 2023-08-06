@@ -1,41 +1,47 @@
 package main
 
 import (
-	"context"
-	"fmt"
 	"github.com/paveldanilin/flow"
+	_ "github.com/paveldanilin/flow/component/timer"
 	"github.com/paveldanilin/flow/definition"
 	_ "github.com/paveldanilin/flow/expr" // <- simple, simple:bool expr
 )
 
+var simple = definition.Simple
+
 func main() {
 	userFlow := definition.NewBuilder().
 		FlowID("abcd").
-		// TODO: expression notation - <kind>:<expression> (simple:1,simple:InHeader('a')>1)
-		SetHeader("a", "simple", "1").
-		SetHeader("b", "simple", "10").
-		SetBody("simple", "InHeader('a') + InHeader('b')").
-		Condition("InBody() == 2").
-		Then().Log("OK!").End().
-		Else().Log("NOK!").End().
-		End().
+		Consumer("timer:abcd?interval=5s").
+		Log("BZZZZ").
 		GetFlow()
 
 	println(definition.Dump(userFlow.Root))
 
 	flowRegistry := flow.NewRegistry(flow.RegistryConfig{ExchangePoolSize: 1000})
 
-	flowRegistry.Add(userFlow)
-
-	ret, err := flowRegistry.Execute(context.TODO(), flow.Params{
-		FlowID: "abcd",
-	})
-
+	err := flowRegistry.Add(userFlow)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("->%v\n", ret)
+	err = flowRegistry.Start()
+	if err != nil {
+		panic(err)
+	}
+
+	//ret, err := flowRegistry.Execute(context.TODO(), flow.Params{
+	//	FlowID: "abcd",
+	//})
+
+	//if err != nil {
+	//	panic(err)
+	//}
+
+	//fmt.Printf("->%v\n", ret)
+	select {}
+
+	flowRegistry.Stop()
 
 	//consumer := direct.NewConsumer(p1)
 	//consumer := timer.NewConsumer(30 * time.Second)

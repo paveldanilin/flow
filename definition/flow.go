@@ -1,6 +1,7 @@
 package definition
 
 type Flow struct {
-	FlowID string
-	Root   Node
+	FlowID      string
+	ConsumerURI string
+	Root        Node
 }

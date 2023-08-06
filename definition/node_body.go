@@ -3,19 +3,17 @@ package definition
 import "fmt"
 
 type BodyNode struct {
-	ExprKind   string
-	Expression string
+	BodyExpr Expr
 	Node
 }
 
 func (n BodyNode) String() string {
-	return fmt.Sprintf("SetBody:%s:%s", n.ExprKind, n.Expression)
+	return fmt.Sprintf("SetBody:%s:%s", n.BodyExpr.Lang, n.BodyExpr.Expression)
 }
 
-func NewBodyNode(exprKind, expression string) *BodyNode {
+func NewBodyNode(bodyExpr Expr) *BodyNode {
 	return &BodyNode{
-		ExprKind:   exprKind,
-		Expression: expression,
-		Node:       NewNode(),
+		BodyExpr: bodyExpr,
+		Node:     NewNode(),
 	}
 }
