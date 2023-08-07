@@ -74,7 +74,7 @@ func (e *Exchange) MustProp(name string) any {
 	if ok {
 		return v
 	}
-	panic(fmt.Sprintf("exchange: prop not found '%s'", name))
+	panic(fmt.Sprintf("exchange: property not found '%s'", name))
 }
 
 func (e *Exchange) Props() map[string]any {

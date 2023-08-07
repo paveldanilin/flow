@@ -2,7 +2,13 @@ package flow
 
 import (
 	"fmt"
-	"reflect"
+)
+
+type MessageType string
+
+const (
+	MessageIn  MessageType = "in"
+	MessageOut MessageType = "out"
 )
 
 type Message struct {
@@ -75,10 +81,4 @@ func (m *Message) String() string {
 		return s
 	}
 	return fmt.Sprintf("%v", m.body)
-}
-
-func (m *Message) BodyType() string {
-	// TODO: move to prop
-	t := reflect.TypeOf(m.body).Elem()
-	return t.PkgPath() + "." + t.Name()
 }

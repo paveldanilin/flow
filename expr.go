@@ -10,7 +10,50 @@ type Expr interface {
 	Evaluate(exchange *Exchange) (any, error)
 }
 
-type ExprFactoryFunc func(expression string, opts ...any) (Expr, error)
+type BaseExpr struct {
+	messageType MessageType
+	headerName  string
+}
+
+func NewBaseExpr(opts ...ExprOption) *BaseExpr {
+	be := &BaseExpr{messageType: MessageIn, headerName: ""}
+	for _, opt := range opts {
+		opt(be)
+	}
+	return be
+}
+
+func (be BaseExpr) MessageType() MessageType {
+	return be.messageType
+}
+
+func (be BaseExpr) HeaderName() string {
+	return be.headerName
+}
+
+// ExprOption represents an option for expression.
+// If HeaderName option is empty, the expression will be evaluated on the message body.
+type ExprOption func(*BaseExpr)
+
+func InMessage() ExprOption {
+	return func(expr *BaseExpr) {
+		expr.messageType = MessageIn
+	}
+}
+
+func OutMessage() ExprOption {
+	return func(expr *BaseExpr) {
+		expr.messageType = MessageOut
+	}
+}
+
+func HeaderName(headerName string) ExprOption {
+	return func(expr *BaseExpr) {
+		expr.headerName = headerName
+	}
+}
+
+type ExprFactoryFunc func(expression string, opts ...ExprOption) (Expr, error)
 
 var (
 	exprFactoryMap = map[string]ExprFactoryFunc{}
@@ -31,13 +74,13 @@ func RegisterExprFactory(lang string, factoryFunc ExprFactoryFunc) error {
 	return nil
 }
 
-func NewExpr(lang, expression string, opts ...any) (Expr, error) {
+func newExpr(lang, expression string, opts ...ExprOption) (Expr, error) {
 	exprFactoryMu.RLock()
 	defer exprFactoryMu.RUnlock()
 
 	if factoryFunc, exists := exprFactoryMap[lang]; exists {
-		return factoryFunc(expression, opts)
+		return factoryFunc(expression, opts...)
 	}
 
-	return nil, fmt.Errorf("flow: unknown expr lang='%s'", lang)
+	return nil, fmt.Errorf("flow: unknown expr lang '%s'", lang)
 }

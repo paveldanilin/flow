@@ -9,8 +9,8 @@ func Simple(expression string) Expr {
 	return Expr{Lang: "simple", Expression: expression}
 }
 
-func XPath(xpathExpression string) Expr {
-	return Expr{Lang: "xpath", Expression: xpathExpression}
+func JsonQuery(query string) Expr {
+	return Expr{Lang: "jsonquery", Expression: query}
 }
 
 // Template returns a definition of the golang template

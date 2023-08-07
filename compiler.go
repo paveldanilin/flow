@@ -73,7 +73,7 @@ func createProcessor(node definition.Node) (Processor, error) {
 }
 
 func createConditionalProcessor(node *definition.ConditionalNode) (*ConditionalProcessor, error) {
-	expr, err := NewExpr(node.Condition.Lang, node.Condition.Expression)
+	expr, err := newExpr(node.Condition.Lang, node.Condition.Expression)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func createConditionalProcessor(node *definition.ConditionalNode) (*ConditionalP
 }
 
 func createHeaderProcessor(node *definition.HeaderNode) (*HeaderProcessor, error) {
-	expr, err := NewExpr(node.HeaderExpr.Lang, node.HeaderExpr.Expression)
+	expr, err := newExpr(node.HeaderExpr.Lang, node.HeaderExpr.Expression)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func createHeaderProcessor(node *definition.HeaderNode) (*HeaderProcessor, error
 }
 
 func createBodyProcessor(node *definition.BodyNode) (*BodyProcessor, error) {
-	expr, err := NewExpr(node.BodyExpr.Lang, node.BodyExpr.Expression)
+	expr, err := newExpr(node.BodyExpr.Lang, node.BodyExpr.Expression)
 	if err != nil {
 		return nil, err
 	}
