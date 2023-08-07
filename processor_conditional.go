@@ -47,7 +47,7 @@ func (p *ConditionalProcessor) nextProcessor(exchange *Exchange) (Processor, err
 		return nil, err
 	}
 
-	if ret.(bool) {
+	if AsBool(ret) {
 		return p.thenProcessor, nil
 	}
 

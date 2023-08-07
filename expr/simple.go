@@ -8,22 +8,42 @@ import (
 )
 
 func init() {
-	// TODO: add error check
-	flow.RegisterExprFactory("simple", func(expression string, opts ...any) (flow.Expr, error) {
-		if len(opts) > 0 {
-			if asBool, ifBool := opts[0].(bool); ifBool && asBool {
-				return SimpleBool(expression)
-			}
-		}
-		return Simple(expression)
-	})
-	flow.RegisterExprFactory("simple:bool", func(expression string, opts ...any) (flow.Expr, error) {
-		return SimpleBool(expression)
-	})
+	err := flow.RegisterExprFactory("simple", Simple)
+	if err != nil {
+		panic(fmt.Sprintf("flow.expr: could not register 'simple' factory: %s", err.Error()))
+	}
+}
+
+// Simple wraps https://github.com/antonmedv/expr
+// Language definition: https://expr.medv.io/docs/Language-Definition
+func Simple(expression string, opts ...flow.ExprOption) (flow.Expr, error) {
+	pg, err := expr.Compile(expression, expr.Env(simpleEnv{}))
+	if err != nil {
+		return nil, err
+	}
+
+	return &simpleExpr{
+		program:  pg,
+		BaseExpr: flow.NewBaseExpr(opts...),
+	}, nil
+}
+
+// MustSimple wraps https://github.com/antonmedv/expr
+// Language definition: https://expr.medv.io/docs/Language-Definition
+func MustSimple(expression string, opts ...flow.ExprOption) flow.Expr {
+	e, err := Simple(expression, opts...)
+	if err != nil {
+		panic(fmt.Sprintf("expr.simple: %s", err.Error()))
+	}
+	return e
 }
 
 // simpleEnv wraps Exchange with a set of helper functions
 // https://expr.medv.io/docs/Getting-Started#configuration
+// Example
+// `exchange.Prop('a') > 0` equals to `Prop('a') == 1`
+// `exchange.In().Header('user_type') == 'admin'` equals to `InHeader('user_type') == 'admin'`
+// `exchange.Out().Header('flag') == true` equals to `OutHeader('flag') == true`
 type simpleEnv struct {
 	Exchange *flow.Exchange `expr:"exchange"`
 }
@@ -48,54 +68,17 @@ func (env simpleEnv) Prop(propName string) any {
 	return env.Exchange.MustProp(propName)
 }
 
-// simpleExpr wraps a vm.Program
+// simpleExpr wraps https://github.com/antonmedv/expr
 // Language definition: https://expr.medv.io/docs/Language-Definition
-// https://github.com/antonmedv/expr
 type simpleExpr struct {
 	program *vm.Program
+	*flow.BaseExpr
 }
 
 func (se *simpleExpr) Evaluate(exchange *flow.Exchange) (any, error) {
-	r, err := expr.Run(se.program, simpleEnv{Exchange: exchange})
-	if err != nil {
-		return false, err
-	}
-	return r, nil
-}
-
-// Simple wraps a github.com/antonmedv/expr/vm/Program
-// Language definition: https://expr.medv.io/docs/Language-Definition
-// https://github.com/antonmedv/expr
-func Simple(expression string) (flow.Expr, error) {
-	out, err := expr.Compile(expression, expr.Env(simpleEnv{}))
+	ret, err := expr.Run(se.program, simpleEnv{Exchange: exchange})
 	if err != nil {
 		return nil, err
 	}
-
-	return &simpleExpr{program: out}, nil
-}
-
-func MustSimple(expression string) flow.Expr {
-	e, err := Simple(expression)
-	if err != nil {
-		panic(fmt.Sprintf("simple: %s", err.Error()))
-	}
-	return e
-}
-
-func SimpleBool(expression string) (flow.Expr, error) {
-	out, err := expr.Compile(expression, expr.Env(simpleEnv{}), expr.AsBool())
-	if err != nil {
-		return nil, err
-	}
-
-	return &simpleExpr{program: out}, nil
-}
-
-func MustSimpleBool(expression string) flow.Expr {
-	e, err := SimpleBool(expression)
-	if err != nil {
-		panic(fmt.Sprintf("simple: %s", err.Error()))
-	}
-	return e
+	return ret, nil
 }

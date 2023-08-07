@@ -7,7 +7,7 @@ import (
 )
 
 func TestSimpleBool_Prop(t *testing.T) {
-	expression := MustSimpleBool("Prop('username') == 'test'")
+	expression := MustSimple("Prop('username') == 'test'")
 
 	exchange := flow.NewExchange()
 	exchange.SetProp("username", "test")
